@@ -138,7 +138,7 @@ class ImageCaptioner(pl.LightningModule):
         targets = pack_padded_sequence(targets, decode_lengths, batch_first=True).data
 
         loss = self.critereon(preds, targets)
-        self.log("loss", loss, prog_bar=True)
+        self.log("train_loss", loss, prog_bar=True)
 
         # normalize loss for gradient accumulation backwards pass
         self.manual_backward(loss / self.gradient_accumulation_steps)
@@ -181,4 +181,4 @@ class ImageCaptioner(pl.LightningModule):
         outputs = np.concatenate(outputs)
         outputs = [f"InChI=1S/{text}" for text in outputs]
         score = get_score(self.valid_labels, outputs)
-        self.log("score", score, prog_bar=True)
+        self.log("val_score", score, prog_bar=True)
