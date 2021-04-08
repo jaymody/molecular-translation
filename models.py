@@ -17,76 +17,49 @@ from utils import get_score
 # TODO: right now this setup will not work with ReduceLROnPLateau with the pl module
 def get_scheduler(optimizer):
     return CosineAnnealingLR(optimizer, T_max=4, eta_min=1e-6, last_epoch=-1)
-    # if CFG.scheduler == "ReduceLROnPlateau":
-    #     scheduler = ReduceLROnPlateau(
-    #         optimizer,
-    #         mode="min",
-    #         factor=CFG.factor,
-    #         patience=CFG.patience,
-    #         verbose=True,
-    #         eps=CFG.eps,
-    #     )
-    # elif CFG.scheduler == "CosineAnnealingLR":
-    #     scheduler = CosineAnnealingLR(
-    #         optimizer, T_max=CFG.T_max, eta_min=CFG.min_lr, last_epoch=-1
-    #     )
-    # elif CFG.scheduler == "CosineAnnealingWarmRestarts":
-    #     scheduler = CosineAnnealingWarmRestarts(
-    #         optimizer, T_0=CFG.T_0, T_mult=1, eta_min=CFG.min_lr, last_epoch=-1
-    #     )
-    # return scheduler
 
 
 class ImageCaptioner(pl.LightningModule):
     def __init__(
         self,
-        model_name,
         tokenizer,
+        valid_labels,
+        model_name,
         encoder_lr,
         decoder_lr,
         weight_decay,
-        amsgrad,
         attention_dim,
         embed_dim,
         decoder_dim,
         dropout,
         max_len,
-        valid_labels,
         gradient_accumulation_steps,
         max_grad_norm,
         device,
+        **kwargs,
     ):
         super().__init__()
 
+        # saves __init__() args in self.hparams except for ignored args.
+        # the purpose of **kwargs is to include configs when saving hparams to
+        # tensorboard/wandb that aren't needed for the model (ie things
+        # like batch size, image size, etc ...)
         self.save_hyperparameters()
-        del self.hparams["tokenizer"]
-        del self.hparams["valid_labels"]
-        del self.hparams["device"]
+        for ignore in ["tokenizer", "valid_labels", "device"]:
+            del self.hparams[ignore]
 
-        self.model_name = model_name
         self.tokenizer = tokenizer
-        self.encoder_lr = encoder_lr
-        self.decoder_lr = decoder_lr
-        self.weight_decay = weight_decay
-        self.amsgrad = amsgrad
-        self.attention_dim = attention_dim
-        self.embed_dim = embed_dim
-        self.decoder_dim = decoder_dim
-        self.dropout = dropout
-        self.max_len = max_len
         self.valid_labels = valid_labels
-        self.gradient_accumulation_steps = gradient_accumulation_steps
-        self.max_grad_norm = max_grad_norm
         self.to(device)
 
-        self.encoder = Encoder(self.model_name, pretrained=True)
+        self.encoder = Encoder(model_name, pretrained=True)
         self.encoder.to(device)
         self.decoder = DecoderWithAttention(
-            attention_dim=self.attention_dim,
-            embed_dim=self.embed_dim,
-            decoder_dim=self.decoder_dim,
+            attention_dim=attention_dim,
+            embed_dim=embed_dim,
+            decoder_dim=decoder_dim,
             vocab_size=len(tokenizer),
-            dropout=self.dropout,
+            dropout=dropout,
             device=self.device,
         )
 
@@ -96,16 +69,16 @@ class ImageCaptioner(pl.LightningModule):
     def configure_optimizers(self):
         encoder_optimizer = Adam(
             self.encoder.parameters(),
-            lr=self.encoder_lr,
-            weight_decay=self.weight_decay,
-            amsgrad=self.amsgrad,
+            lr=self.hparams.encoder_lr,
+            weight_decay=self.hparams.weight_decay,
+            amsgrad=False,
         )
 
         decoder_optimizer = Adam(
             self.decoder.parameters(),
-            lr=self.decoder_lr,
-            weight_decay=self.weight_decay,
-            amsgrad=self.amsgrad,
+            lr=self.hparams.decoder_lr,
+            weight_decay=self.hparams.weight_decay,
+            amsgrad=False,
         )
         encoder_scheduler = get_scheduler(encoder_optimizer)
         decoder_scheduler = get_scheduler(decoder_optimizer)
@@ -117,7 +90,9 @@ class ImageCaptioner(pl.LightningModule):
     def predict(self, images):
         with torch.no_grad():
             features = self.encoder(images)
-            predictions = self.decoder.predict(features, self.max_len, self.tokenizer)
+            predictions = self.decoder.predict(
+                features, self.hparams.max_len, self.tokenizer
+            )
 
         predicted_sequence = torch.argmax(predictions.detach().cpu(), -1).numpy()
         text_preds = self.tokenizer.predict_captions(predicted_sequence)
@@ -141,19 +116,19 @@ class ImageCaptioner(pl.LightningModule):
         self.log("train_loss", loss, prog_bar=True)
 
         # normalize loss for gradient accumulation backwards pass
-        self.manual_backward(loss / self.gradient_accumulation_steps)
+        self.manual_backward(loss / self.hparams.gradient_accumulation_steps)
 
         # run optimization
-        if batch_idx % self.gradient_accumulation_steps == 0:
+        if batch_idx % self.hparams.gradient_accumulation_steps == 0:
             # get optimizers
             encoder_optimizer, decoder_optimizer = self.optimizers()
 
             # clip gradients
             encoder_grad_norm = torch.nn.utils.clip_grad_norm_(
-                self.encoder.parameters(), self.max_grad_norm
+                self.encoder.parameters(), self.hparams.max_grad_norm
             )
             decoder_grad_norm = torch.nn.utils.clip_grad_norm_(
-                self.decoder.parameters(), self.max_grad_norm
+                self.decoder.parameters(), self.hparams.max_grad_norm
             )
 
             # perform optimizer step
@@ -170,7 +145,9 @@ class ImageCaptioner(pl.LightningModule):
         images = batch
 
         features = self.encoder(images)
-        predictions = self.decoder.predict(features, self.max_len, self.tokenizer)
+        predictions = self.decoder.predict(
+            features, self.hparams.max_len, self.tokenizer
+        )
 
         predicted_sequence = torch.argmax(predictions.detach().cpu(), -1).numpy()
         text_preds = self.tokenizer.predict_captions(predicted_sequence)

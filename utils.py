@@ -10,9 +10,9 @@ import numpy as np
 def get_data_paths(data_dir):
     train_dir = os.path.join(data_dir, "train")
     test_dir = os.path.join(data_dir, "test")
-    train_file = os.path.join(data_dir, "train_labels.csv")
-    test_file = os.path.join(data_dir, "sample_submission.csv")
-    return train_dir, test_dir, train_file, test_file
+    train_csv = os.path.join(data_dir, "train_labels.csv")
+    test_csv = os.path.join(data_dir, "sample_submission.csv")
+    return train_csv, test_csv, train_dir, test_dir
 
 
 def path_from_image_id(image_id, image_dir):
