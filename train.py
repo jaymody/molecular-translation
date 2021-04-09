@@ -214,7 +214,7 @@ def train(name, output_dir):
 
 
 if __name__ == "__main__":
-    train_csv, test_csv, train_dir, test_dir = get_data_paths(input_dir)
+    train_csv, _, train_dir, _ = get_data_paths(input_dir)
 
     if os.path.isdir(output_dir):
         print("... skipping proprocessing since output_dir already exists ...\n")
