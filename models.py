@@ -4,11 +4,7 @@ import torch.nn as nn
 from torch.optim import Adam
 import pytorch_lightning as pl
 from torch.nn.utils.rnn import pack_padded_sequence
-from torch.optim.lr_scheduler import (
-    CosineAnnealingWarmRestarts,
-    CosineAnnealingLR,
-    ReduceLROnPlateau,
-)
+from torch.optim.lr_scheduler import CosineAnnealingLR
 
 from layers import Encoder, DecoderWithAttention
 from utils import get_score
@@ -81,19 +77,25 @@ class ImageCaptioner(pl.LightningModule):
             weight_decay=self.hparams.weight_decay,
             amsgrad=False,
         )
-
         decoder_optimizer = Adam(
             self.decoder.parameters(),
             lr=self.hparams.decoder_lr,
             weight_decay=self.hparams.weight_decay,
             amsgrad=False,
         )
-        encoder_scheduler = get_scheduler(encoder_optimizer)
-        decoder_scheduler = get_scheduler(decoder_optimizer)
-        return [encoder_optimizer, decoder_optimizer], [
-            encoder_scheduler,
-            decoder_scheduler,
-        ]
+
+        encoder_scheduler = {
+            "scheduler": get_scheduler(encoder_optimizer),
+            "name": "encoder_lr",  # name is used for logging
+        }
+        decoder_scheduler = {
+            "scheduler": get_scheduler(decoder_optimizer),
+            "name": "decoder_lr",  # name is used for logging
+        }
+
+        optimizers = [encoder_optimizer, decoder_optimizer]
+        schedulers = [encoder_scheduler, decoder_scheduler]
+        return optimizers, schedulers
 
     def predict(self, images):
         with torch.no_grad():
