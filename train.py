@@ -34,7 +34,7 @@ tqdm.pandas()
 device = get_device()
 
 scale = 1
-output_dir = "models/_test"
+output_dir = "models/ynakama_3epoch_pl"
 input_dir = "../input/bms-molecular-translation"
 log_wandb = True
 debug = False
@@ -46,7 +46,7 @@ config = {
     "num_workers": 8,
     "model_name": "resnet34",
     "scheduler": "CosineAnnealingLR",
-    "epochs": 1,
+    "epochs": 3,
     "encoder_lr": 1e-4 * scale,
     "decoder_lr": 4e-4 * scale,
     "min_lr": 1e-6 * scale,
@@ -166,6 +166,7 @@ def train(name, output_dir):
     )
 
     logger = True
+    limit_batches = 1.0
     if not debug and log_wandb:
         from pytorch_lightning.loggers import WandbLogger
 
@@ -176,6 +177,8 @@ def train(name, output_dir):
             log_model=False,
             group=name,
         )
+    if debug:
+        limit_batches = 0.01
 
     # NOTE: the gradient_clip_val and accumulate_grad_batches params in trainer
     # have no affect since we are doing manual optimization and need to implement
@@ -191,9 +194,9 @@ def train(name, output_dir):
         min_epochs=1,
         # max_steps=None,  # use if you want to train based on step rather than epoch
         # min_steps=None,  # use if you want to train based on step rather than epoch
-        limit_train_batches=1.0 / 100,  # percentage of train data to use
-        limit_val_batches=1.0 / 100,  # percentage of validation data to use
-        limit_test_batches=1.0,  # percentage of test data to use
+        limit_train_batches=limit_batches,  # percentage of train data to use
+        limit_val_batches=limit_batches,  # percentage of validation data to use
+        limit_test_batches=limit_batches,  # percentage of test data to use
         check_val_every_n_epoch=1,  # run validation every n epochs
         val_check_interval=0.20,  # run validation after every n percent of an epoch
         precision=32,  # use 16 for half point precision
