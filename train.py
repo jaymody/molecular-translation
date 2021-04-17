@@ -9,11 +9,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 import pytorch_lightning as pl
-from pytorch_lightning.callbacks import (
-    LearningRateMonitor,
-    GPUStatsMonitor,
-    ModelCheckpoint,
-)
+from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
 
 from torch.utils.data import DataLoader
 from sklearn.model_selection import train_test_split
@@ -34,22 +30,23 @@ tqdm.pandas()
 device = get_device()
 
 scale = 1
-output_dir = "models/ynakama_3epoch_pl"
+output_dir = "models/_test"
 input_dir = "../input/bms-molecular-translation"
-log_wandb = True
+log_wandb = False
 debug = False
+profile = True
 
 config = {
     "gpus": 1,
     "max_len": 275,
     "size": 224,
     "num_workers": 8,
+    "precision": 32,
     "model_name": "resnet34",
     "scheduler": "CosineAnnealingLR",
     "epochs": 3,
     "encoder_lr": 1e-4 * scale,
     "decoder_lr": 4e-4 * scale,
-    "min_lr": 1e-6 * scale,
     "batch_size": 64 * scale,
     "weight_decay": 1e-6,
     "gradient_accumulation_steps": 1,
@@ -166,19 +163,20 @@ def train(name, output_dir):
     )
 
     logger = True
-    limit_batches = 1.0
-    if not debug and log_wandb:
-        from pytorch_lightning.loggers import WandbLogger
-
-        logger = WandbLogger(
-            save_dir=output_dir,
-            offline=False,
-            project=os.environ["WANDB_PROJECT"],
-            log_model=False,
-            group=name,
-        )
     if debug:
         limit_batches = 0.01
+    else:
+        limit_batches = 1.0
+        if log_wandb:
+            from pytorch_lightning.loggers import WandbLogger
+
+            logger = WandbLogger(
+                save_dir=output_dir,
+                offline=False,
+                project=os.environ["WANDB_PROJECT"],
+                log_model=False,
+                group=name,
+            )
 
     # NOTE: the gradient_clip_val and accumulate_grad_batches params in trainer
     # have no affect since we are doing manual optimization and need to implement
@@ -199,17 +197,17 @@ def train(name, output_dir):
         limit_test_batches=limit_batches,  # percentage of test data to use
         check_val_every_n_epoch=1,  # run validation every n epochs
         val_check_interval=0.20,  # run validation after every n percent of an epoch
-        precision=32,  # use 16 for half point precision
+        precision=config["precision"],  # use 16 for half point precision
         # resume_from_checkpoint=None,  # place path to checkpoint if resuming training
         # auto_lr_find=False,  # set to True to optimize learning rate
         # auto_scale_batch_size=False,  # set to True to find largest batch size that fits in hardware
         log_every_n_steps=int(100 / scale),
-        callbacks=[
-            checkpoint_callback,
-            LearningRateMonitor("step"),
-            GPUStatsMonitor(temperature=True, fan_speed=True),
-        ],
+        flush_logs_every_n_steps=int(100 / scale),
+        callbacks=[checkpoint_callback, LearningRateMonitor()],
         logger=logger,
+        profiler="simple" if profile else None,
+        deterministic=True,
+        weights_summary="full",
     )
     trainer.fit(model, train_loader, valid_loader)
 
