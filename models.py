@@ -40,13 +40,21 @@ class ImageCaptioner(pl.LightningModule):
     ):
         super().__init__()
 
-        # saves __init__() args in self.hparams except for ignored args.
-        # the purpose of **kwargs is to include configs when saving hparams to
-        # tensorboard/wandb that aren't needed for the model (ie things
-        # like batch size, image size, etc ...)
-        self.save_hyperparameters()
-        for ignore in ["tokenizer", "valid_labels", "device"]:
-            del self.hparams[ignore]
+        # only save params of interest and kwargs
+        self.save_hyperparameters(
+            "model_name",
+            "encoder_lr",
+            "decoder_lr",
+            "weight_decay",
+            "attention_dim",
+            "embed_dim",
+            "decoder_dim",
+            "dropout",
+            "max_len",
+            "gradient_accumulation_steps",
+            "max_grad_norm",
+            *kwargs.keys(),
+        )
 
         self.tokenizer = tokenizer
         self.valid_labels = valid_labels
