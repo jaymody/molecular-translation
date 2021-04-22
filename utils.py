@@ -57,7 +57,7 @@ def get_device():
 def get_score(y_true, y_pred):
     scores = []
     for true, pred in zip(y_true, y_pred):
-        score = Levenshtein.distance(true, pred)
+        score = Levenshtein.distance(true, pred)  # pylint: disable=no-member
         scores.append(score)
     avg_score = np.mean(scores)
     return avg_score

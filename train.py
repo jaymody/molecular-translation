@@ -1,11 +1,6 @@
 import os
-import gc
-import sys
-import random
-import argparse
 
 import torch
-import numpy as np
 import pandas as pd
 from tqdm import tqdm
 import pytorch_lightning as pl
@@ -14,16 +9,14 @@ from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
 from torch.utils.data import DataLoader
 from sklearn.model_selection import train_test_split
 
-from data import TrainDataset, ValidDataset, TestDataset, BMSCollator, get_transforms
+from data import TrainDataset, ValidDataset, BMSCollator, get_transforms
 from models import ImageCaptioner
 from tokenizers import Tokenizer, split_form, split_form2
 from utils import (
     get_data_paths,
     path_from_image_id,
     set_seed,
-    get_logger,
     get_device,
-    get_score,
 )
 
 tqdm.pandas()
@@ -102,6 +95,8 @@ def preprocess(train_csv, train_dir, output_dir):
 
 
 def train(name, output_dir):
+    set_seed(config["seed"])
+
     print("\n... loading data ...")
     df = pd.read_pickle(os.path.join(output_dir, "train2.pkl"))
     print(df)

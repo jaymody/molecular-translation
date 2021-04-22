@@ -82,7 +82,7 @@ def split_form2(form):
         num_string = ""
         for j in re.findall(r"[0-9]+[^0-9]*", num):
             num_list = list(re.findall(r"\d+", j))
-            assert len(num_list) == 1, f"len(num_list) != 1"
+            assert len(num_list) == 1, f"{len(num_list)} != 1"
             _num = num_list[0]
             if j == _num:
                 num_string += f"{_num} "

@@ -134,10 +134,10 @@ class ImageCaptioner(pl.LightningModule):
             encoder_optimizer, decoder_optimizer = self.optimizers()
 
             # clip gradients
-            encoder_grad_norm = torch.nn.utils.clip_grad_norm_(
+            torch.nn.utils.clip_grad_norm_(
                 self.encoder.parameters(), self.hparams.max_grad_norm
             )
-            decoder_grad_norm = torch.nn.utils.clip_grad_norm_(
+            torch.nn.utils.clip_grad_norm_(
                 self.decoder.parameters(), self.hparams.max_grad_norm
             )
 
